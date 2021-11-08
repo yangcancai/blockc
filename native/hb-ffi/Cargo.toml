@@ -1,0 +1,21 @@
+[package]
+name = "hb-ffi"
+version = "0.1.0"
+authors = ["yangcancai <yangcancai0112@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "hb_ffi"
+crate-type = ["rlib"]
+
+[dependencies]
+hb = { path = "../hb" }
+tokio = { version = "0.2", features = ["rt-threaded"] }
+ffi_helpers = "0.2"
+allo-isolate = "0.1.10"
+lazy_static = "1.4"
+atomic = "0.5"
+
+[build-dependencies]
+cbindgen = "0.14.3"
+dart-bindgen = "^0.1.8"
