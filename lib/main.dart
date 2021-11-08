@@ -1,8 +1,8 @@
 import 'dart:ffi';
 
 import 'package:flutter/material.dart';
-import 'package:scrap/ffi.dart';
-import 'package:scrap/scrap.dart';
+import 'package:hb/hb.dart';
+import 'package:hb/ffi.dart';
 import 'package:ffi/ffi.dart';
 
 void main() => runApp(MyApp());
@@ -29,20 +29,20 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
-  // Hb hb = Hb();
-  Scrap hb = Scrap();
+  Hb hb = Hb();
   late Pointer<Ws> ws;
   @override
   void initState() {
     super.initState();
-    // Hb.setup();
-    Scrap.setup();
+    Hb.setup();
     hb.startTimer();
-    // ws = start_ws("wss://api.huobi.pro/ws".toNativeUtf8());
+    ws = start_ws("wss://api.huobi.pro/ws".toNativeUtf8());
     // ws = start_ws("ws://127.0.0.1:2794".toNativeUtf8());
-    // if (ws == nullptr){
-      // print("start_ws null");
-    // }
+    if (ws == nullptr){
+       print("start_ws null");
+    }else{
+      is_alive(ws);
+    }
   }
 
   @override
@@ -100,7 +100,6 @@ class _MyHomePageState extends State<MyHomePage> {
   }
   void _showWebPage() async {
     final html = await hb.loadPage('https://www.rust-lang.org/');
-    _startWs();
     // final html = "kkk";
     showModalBottomSheet(
       context: context,

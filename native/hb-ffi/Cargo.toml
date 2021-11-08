@@ -6,7 +6,7 @@ edition = "2018"
 
 [lib]
 name = "hb_ffi"
-crate-type = ["rlib"]
+crate-type = ["dylib"]
 
 [dependencies]
 hb = { path = "../hb" }
@@ -15,6 +15,19 @@ ffi_helpers = "0.2"
 allo-isolate = "0.1.10"
 lazy_static = "1.4"
 atomic = "0.5"
+websocket="0.26.2"
+flate2 = "1.0"
+serde_json = "1.0"
+actix = "0.10.0"
+actix-codec = "0.3"
+actix-web-actors = "3"
+actix-files = "0.3"
+awc = "2"
+env_logger = "0.8"
+futures = "^0.3.1"
+bytes = "0.5.3"
+actix-web={ version = "3.3.2", default-features = false, features = ["rustls"] }
+
 
 [build-dependencies]
 cbindgen = "0.14.3"

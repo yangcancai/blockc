@@ -1238,14 +1238,26 @@ dependencies = [
 name = "hb-ffi"
 version = "0.1.0"
 dependencies = [
+ "actix",
+ "actix-codec",
+ "actix-files",
+ "actix-web",
+ "actix-web-actors",
  "allo-isolate",
  "atomic",
+ "awc",
+ "bytes 0.5.6",
  "cbindgen",
  "dart-bindgen",
+ "env_logger",
  "ffi_helpers",
+ "flate2",
+ "futures 0.3.17",
  "hb",
  "lazy_static",
+ "serde_json",
  "tokio 0.2.25",
+ "websocket",
 ]
 
 [[package]]
@@ -2296,39 +2308,6 @@ name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
-
-[[package]]
-name = "scrap"
-version = "0.1.0"
-dependencies = [
- "reqwest",
-]
-
-[[package]]
-name = "scrap-ffi"
-version = "0.1.0"
-dependencies = [
- "actix",
- "actix-codec",
- "actix-files",
- "actix-web",
- "actix-web-actors",
- "allo-isolate",
- "atomic",
- "awc",
- "bytes 0.5.6",
- "cbindgen",
- "dart-bindgen",
- "env_logger",
- "ffi_helpers",
- "flate2",
- "futures 0.3.17",
- "hb",
- "lazy_static",
- "serde_json",
- "tokio 0.2.25",
- "websocket",
-]
 
 [[package]]
 name = "sct"

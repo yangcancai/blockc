@@ -1,14 +1,21 @@
 #![allow(clippy::missing_safety_doc, clippy::not_unsafe_ptr_arg_deref)]
 
+use actix::*;
+use actix_web::client::WsProtocolError;
+use actix_web_actors::ws::Frame;
 use allo_isolate::Isolate;
 use atomic::Atomic;
-use ffi_helpers::{null_pointer_check, NullPointer};
-// use hb::ws::Ws;
+use awc::ws::Message;
+use ffi_helpers::null_pointer_check;
+use hb::client::*;
+use hb::ws::Ws;
 use lazy_static::lazy_static;
-// use std::error::Error;
+use serde_json::json;
 use std::sync::atomic::Ordering;
 use std::{ffi::CStr, io, os::raw};
 use tokio::runtime::{Builder, Runtime};
+use std::slice;
+
 static mut PORT_COBJECT: Atomic<Option<i64>> = Atomic::new(None);
 
 lazy_static! {
@@ -16,7 +23,7 @@ lazy_static! {
         .threaded_scheduler()
         .enable_all()
         .core_threads(4)
-        .thread_name("blockc")
+        .thread_name("flutterust")
         .build();
 }
 
@@ -55,7 +62,6 @@ macro_rules! runtime {
         }
     };
 }
-
 #[no_mangle]
 pub unsafe extern "C" fn last_error_length() -> i32 {
     ffi_helpers::error_handling::last_error_length()
@@ -76,18 +82,12 @@ pub extern "C" fn load_page(port: i64, url: *const raw::c_char) -> i32 {
 }
 pub async fn do_task() -> i32 {
     let mut i = 0;
-    while i < 100 {
+    while i < 10 {
+        i = i + 1;
         unsafe {
-            if let Some(port) = PORT_COBJECT.load(Ordering::Relaxed) {
-                let rt = runtime!();
-                let t = Isolate::new(port).task(async move { i + 1 });
-                rt.spawn(t);
-                i = i + 1;
-                std::thread::sleep(std::time::Duration::from_millis(1000))
-            } else {
-                break;
-            }
+            post_dart(i.to_string());
         }
+        std::thread::sleep(std::time::Duration::from_millis(1000));
     }
     0
 }
@@ -98,24 +98,70 @@ pub unsafe extern "C" fn start_timer(port: i64) -> i32 {
     rt.spawn(do_task());
     1
 }
-// #[no_mangle]
-// pub unsafe extern "C" fn start_ws(url: *const raw::c_char) -> *mut Ws {
-//     let url = CStr::from_ptr(url).to_str().unwrap();
-//     let ws = Ws::new_ssl(url);
-//     if let Ok(rs) = ws {
-//         let b = Box::new(rs);
-//         Box::into_raw(b)
-//     } else {
-//         std::ptr::null_mut()
-//     }
-// }
-// #[no_mangle]
-// pub unsafe extern "C" fn is_alive(ws: *mut Ws) -> bool {
-//     let mut b = Box::from_raw(ws);
-//     b.is_alive()
-// }
-// #[no_mangle]
-// pub unsafe extern "C" fn stop_ws(ws: *mut Ws) {
-//     let mut b = Box::from_raw(ws);
-//     b.close()
-// }
+fn rec_hb(
+    msg: Result<Frame, WsProtocolError>,
+    ctx: &mut Context<ChatClient>,
+) -> Result<(), std::io::Error> {
+    use flate2::read::GzDecoder;
+    use std::io::prelude::*;
+    match msg {
+        Ok(Frame::Binary(txt)) => {
+            let mut d = GzDecoder::new(&*txt);
+            let mut s = String::new();
+            d.read_to_string(&mut s)?;
+            let r: serde_json::Value = serde_json::from_str(&s)?;
+            if r["ping"] != json!(null) {
+                let pong = json!({"pong":r["ping"]}).to_string();
+                ctx.notify(ClientCommand(WsMsg::Message(Message::Text(pong))));
+                unsafe {post_dart( s);};
+            } else {
+                unsafe {post_dart( s);};
+            }
+        }
+        other => {
+            println!("{:?}", other);
+        }
+    }
+    Ok(())
+}
+
+unsafe fn post_dart(msg: String) -> i32 {
+    if let Some(port) = PORT_COBJECT.load(Ordering::Relaxed) {
+        let rt = runtime!();
+        let t = Isolate::new(port).task(async move { msg });
+        rt.spawn(t);
+    }
+    0
+}
+#[no_mangle]
+pub unsafe extern "C" fn start_ws(url: *const raw::c_char) -> *mut Ws {
+    let url = CStr::from_ptr(url).to_str().unwrap();
+    let mut ws = Ws::new(url);
+    let _ = ws.add_hook_start(hb_start);
+    let _ = ws.add_hook_stop(hb_stop);
+    let _ = ws.add_hook(rec_hb);
+    ws.connect();
+    let _ = ws.send_msg("{\"sub\":\"market.btcusdt.bbo\",\"id\":\"id1\"}");
+    if ws.is_alive() {
+        post_dart("new ws ssl ok".into());
+        let b = Box::new(ws);
+        Box::into_raw(b)
+    } else {
+        post_dart("start ws error".into());
+        std::ptr::null_mut()
+    }
+}
+fn hb_start(_ctx: &mut Context<ChatClient>) {
+    unsafe { post_dart("ws start".into()) };
+}
+fn hb_stop(_ctx: &mut Context<ChatClient>) {
+    unsafe { post_dart("ws stop".into()) };
+}
+#[no_mangle]
+pub unsafe extern "C" fn is_alive(ws: *mut Ws) -> bool {
+   (*ws).is_alive()
+}
+#[no_mangle]
+pub unsafe extern "C" fn stop_ws(ws: *mut Ws) {
+    (*ws).close()
+}

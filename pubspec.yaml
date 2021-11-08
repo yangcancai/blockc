@@ -29,10 +29,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  hb_ffi:
+  hb:
     path: packages/hb_ffi
-  scrap:
-    path: packages/scrap_ffi
   ffi: ^1.0.0
   isolate: ^2.0.3
 

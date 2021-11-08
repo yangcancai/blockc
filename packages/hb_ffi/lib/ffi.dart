@@ -9,9 +9,20 @@ final DynamicLibrary _dl = _open();
 /// Reference to the Dynamic Library, it should be only used for low-level access
 final DynamicLibrary dl = _dl;
 DynamicLibrary _open() {
+  if (Platform.isMacOS) return DynamicLibrary.open('../../target/debug/libhb_ffi.dylib');
   if (Platform.isAndroid) return DynamicLibrary.open('libhb_ffi.so');
   if (Platform.isIOS) return DynamicLibrary.executable();
   throw UnsupportedError('This platform is not supported.');
+}
+
+/// C struct `Ws`.
+class Ws extends Opaque{
+  // static Pointer<Ws> allocate() {
+  //   return ffi.calloc.allocate<Ws>(0);
+  // }
+  // static Ws from(int ptr) {
+  //   return Pointer<Ws>.fromAddress(ptr);
+  // }
 }
 
 /// C function `error_message_utf8`.
@@ -29,6 +40,20 @@ typedef _error_message_utf8_C = Int32 Function(
 typedef _error_message_utf8_Dart = int Function(
   Pointer<ffi.Utf8> buf,
   int length,
+);
+
+/// C function `is_alive`.
+int is_alive(
+  Pointer<Ws> ws,
+) {
+  return _is_alive(ws);
+}
+final _is_alive_Dart _is_alive = _dl.lookupFunction<_is_alive_C, _is_alive_Dart>('is_alive');
+typedef _is_alive_C = Int32 Function(
+  Pointer<Ws> ws,
+);
+typedef _is_alive_Dart = int Function(
+  Pointer<Ws> ws,
 );
 
 /// C function `last_error_length`.
@@ -68,6 +93,33 @@ typedef _start_timer_C = Int32 Function(
 );
 typedef _start_timer_Dart = int Function(
   int port,
+);
+
+/// C function `start_ws`.
+Pointer<Ws> start_ws(
+  Pointer<ffi.Utf8> url,
+) {
+  return _start_ws(url);
+}
+final _start_ws_Dart _start_ws = _dl.lookupFunction<_start_ws_C, _start_ws_Dart>('start_ws');
+typedef _start_ws_C = Pointer<Ws> Function(
+  Pointer<ffi.Utf8> url,
+);
+typedef _start_ws_Dart = Pointer<Ws> Function(
+  Pointer<ffi.Utf8> url,
+);
+/// C function `stop_ws`.
+void stop_ws(
+  Pointer<Ws> ws,
+) {
+  _stop_ws(ws);
+}
+final _stop_ws_Dart _stop_ws = _dl.lookupFunction<_stop_ws_C, _stop_ws_Dart>('stop_ws');
+typedef _stop_ws_C = Void Function(
+  Pointer<Ws> ws,
+);
+typedef _stop_ws_Dart = void Function(
+  Pointer<Ws> ws,
 );
 
 /// Binding to `allo-isolate` crate
