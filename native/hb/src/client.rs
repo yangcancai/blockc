@@ -11,8 +11,10 @@ use awc::{
 use bytes::Bytes;
 use futures::stream::SplitSink;
 
-pub type HookCallback =
-    fn(Result<Frame, WsProtocolError>, &mut Context<ChatClient>) -> Result<(), std::io::Error>;
+pub type HookCallback = fn(
+    Result<Frame, WsProtocolError>,
+    &mut Context<ChatClient>,
+) -> Result<serde_json::Value, WsProtocolError>;
 
 pub type HookStart = fn(&mut Context<ChatClient>);
 pub type HookStop = fn(&mut Context<ChatClient>);
@@ -21,16 +23,19 @@ pub struct ChatClient(
     pub Option<HookStart>,
     pub Option<HookStop>,
     pub Option<HookCallback>,
+    pub serde_json::Value,
 );
 pub enum WsMsg {
+    Get(String),
     Message(Message),
     Hook(HookCallback),
     HookStart(HookStart),
     HookStop(HookStop),
     Close,
 }
+pub type ClientReply = Option<serde_json::Value>;
 #[derive(Message)]
-#[rtype(result = "()")]
+#[rtype(result = "ClientReply")]
 pub struct ClientCommand(pub WsMsg);
 
 impl Actor for ChatClient {
@@ -65,11 +70,12 @@ impl ChatClient {
 
 /// Handle stdin commands
 impl Handler<ClientCommand> for ChatClient {
-    type Result = ();
+    type Result = ClientReply;
 
-    fn handle(&mut self, msg: ClientCommand, ctx: &mut Context<Self>) {
+    fn handle(&mut self, msg: ClientCommand, ctx: &mut Context<Self>) -> Self::Result {
         match msg.0 {
             WsMsg::Message(text) => {
+                println!("sub...");
                 self.0.write(text);
             }
             WsMsg::Hook(h) => {
@@ -84,14 +90,36 @@ impl Handler<ClientCommand> for ChatClient {
             WsMsg::Close => {
                 self.stopped(ctx);
             }
+            WsMsg::Get(key) => {
+                println!("get...");
+                if let Some(value) = self.4.get(key) {
+                    return Some(value.clone());
+                }
+            }
         }
+        Some(serde_json::Value::Null)
     }
 }
 /// Handle server websocket messages
 impl StreamHandler<Result<Frame, WsProtocolError>> for ChatClient {
     fn handle(&mut self, msg: Result<Frame, WsProtocolError>, ctx: &mut Context<Self>) {
         if let Some(hook) = self.3 {
-            let _ = hook(msg, ctx);
+            match hook(msg, ctx) {
+                Ok(serde_json::Value::Null) => {}
+                Ok(value) => {
+                    if let Some(key) = value["id"].as_str() {
+                        if let Some(obj) = self.4.get_mut(key) {
+                            *obj = value;
+                        } else {
+                            if let Some(obj) = self.4.as_object_mut() {
+                                let v = &value["value"];
+                                obj.insert(key.into(), v.clone());
+                            }
+                        }
+                    }
+                }
+                Err(_e) => {}
+            }
         }
     }
 

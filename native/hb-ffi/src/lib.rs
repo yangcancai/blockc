@@ -11,10 +11,10 @@ use hb::client::*;
 use hb::ws::Ws;
 use lazy_static::lazy_static;
 use serde_json::json;
+use std::slice;
 use std::sync::atomic::Ordering;
 use std::{ffi::CStr, io, os::raw};
 use tokio::runtime::{Builder, Runtime};
-use std::slice;
 
 static mut PORT_COBJECT: Atomic<Option<i64>> = Atomic::new(None);
 
@@ -98,10 +98,11 @@ pub unsafe extern "C" fn start_timer(port: i64) -> i32 {
     rt.spawn(do_task());
     1
 }
-fn rec_hb(
+// callback
+fn hb_rec(
     msg: Result<Frame, WsProtocolError>,
     ctx: &mut Context<ChatClient>,
-) -> Result<(), std::io::Error> {
+) -> Result<serde_json::Value, WsProtocolError> {
     use flate2::read::GzDecoder;
     use std::io::prelude::*;
     match msg {
@@ -109,22 +110,34 @@ fn rec_hb(
             let mut d = GzDecoder::new(&*txt);
             let mut s = String::new();
             d.read_to_string(&mut s)?;
-            let r: serde_json::Value = serde_json::from_str(&s)?;
-            if r["ping"] != json!(null) {
-                let pong = json!({"pong":r["ping"]}).to_string();
-                ctx.notify(ClientCommand(WsMsg::Message(Message::Text(pong))));
-                unsafe {post_dart( s);};
+            if let Ok(r) = serde_json::from_str::<serde_json::Value>(&s) {
+                if r["ping"] != json!(null) {
+                    let pong = json!({"pong":r["ping"]}).to_string();
+                    ctx.notify(ClientCommand(WsMsg::Message(Message::Text(pong))));
+                    unsafe {
+                        post_dart(s);
+                    };
+                    Ok(serde_json::Value::Null)
+                } else {
+                    unsafe {
+                        post_dart(s);
+                    };
+                    Ok(json!({"id":r["ch"],"value":r}))
+                }
             } else {
-                unsafe {post_dart( s);};
+                Ok(serde_json::Value::Null)
             }
         }
-        other => {
-            println!("{:?}", other);
-        }
+        Err(e) => Err(e),
+        _other => Ok(serde_json::Value::Null),
     }
-    Ok(())
 }
-
+fn hb_start(_ctx: &mut Context<ChatClient>) {
+    unsafe { post_dart("ws start".into()) };
+}
+fn hb_stop(_ctx: &mut Context<ChatClient>) {
+    unsafe { post_dart("ws stop".into()) };
+}
 unsafe fn post_dart(msg: String) -> i32 {
     if let Some(port) = PORT_COBJECT.load(Ordering::Relaxed) {
         let rt = runtime!();
@@ -139,7 +152,7 @@ pub unsafe extern "C" fn start_ws(url: *const raw::c_char) -> *mut Ws {
     let mut ws = Ws::new(url);
     let _ = ws.add_hook_start(hb_start);
     let _ = ws.add_hook_stop(hb_stop);
-    let _ = ws.add_hook(rec_hb);
+    let _ = ws.add_hook(hb_rec);
     ws.connect();
     let _ = ws.send_msg("{\"sub\":\"market.btcusdt.bbo\",\"id\":\"id1\"}");
     if ws.is_alive() {
@@ -151,17 +164,23 @@ pub unsafe extern "C" fn start_ws(url: *const raw::c_char) -> *mut Ws {
         std::ptr::null_mut()
     }
 }
-fn hb_start(_ctx: &mut Context<ChatClient>) {
-    unsafe { post_dart("ws start".into()) };
-}
-fn hb_stop(_ctx: &mut Context<ChatClient>) {
-    unsafe { post_dart("ws stop".into()) };
-}
+
 #[no_mangle]
 pub unsafe extern "C" fn is_alive(ws: *mut Ws) -> bool {
-   (*ws).is_alive()
+    (*ws).is_alive()
 }
 #[no_mangle]
 pub unsafe extern "C" fn stop_ws(ws: *mut Ws) {
     (*ws).close()
 }
+#[no_mangle]
+pub unsafe extern "C" fn send_msg(ws: *mut Ws, msg: *const raw::c_char) -> bool {
+    let msg = CStr::from_ptr(msg).to_str().unwrap();
+    if let Ok(()) = (*ws).send_msg(msg) {
+        true
+    } else {
+        false
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_symbols() {}

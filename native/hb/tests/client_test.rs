@@ -18,6 +18,8 @@ fn echo() {
     assert_eq!(s["url"], "wss://api.huobi.pro/ws");
     assert_eq!(s["is_alive"], "true");
     let _ = ws.send_msg("{\"sub\":\"market.btcusdt.bbo\",\"id\":\"id1\"}");
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    assert_ne!(ws.get_data("market.btcusdt.bbo"), serde_json::Value::Null);
     ws.close();
     let s = ws.state();
     assert_eq!(s["url"], "wss://api.huobi.pro/ws");
@@ -36,7 +38,7 @@ fn hb_stop(_ctx: &mut Context<ChatClient>) {
 fn hb(
     msg: Result<Frame, WsProtocolError>,
     ctx: &mut Context<ChatClient>,
-) -> Result<(), std::io::Error> {
+) -> Result<serde_json::Value, WsProtocolError> {
     use flate2::read::GzDecoder;
     use serde_json::json;
     use std::io::prelude::*;
@@ -45,19 +47,24 @@ fn hb(
             let mut d = GzDecoder::new(&*txt);
             let mut s = String::new();
             d.read_to_string(&mut s)?;
-            let r: serde_json::Value = serde_json::from_str(&s)?;
-            if r["ping"] != json!(null) {
-                let pong = json!({"pong":r["ping"]}).to_string();
-                ctx.notify(ClientCommand(WsMsg::Message(Message::Text(pong))));
-                println!("ping:{}", s);
+            if let Ok(r) = serde_json::from_str::<serde_json::Value>(&s) {
+                if r["ping"] != json!(null) {
+                    let pong = json!({"pong":r["ping"]}).to_string();
+                    ctx.notify(ClientCommand(WsMsg::Message(Message::Text(pong))));
+                    println!("ping:{}", s);
+                    Ok(json!(null))
+                } else {
+                    println!("{:?}", s);
+                    Ok(json!({"id":r["ch"],"value":r}))
+                }
             } else {
-                println!("{:?}", s);
-                // System::current().stop();
+                Ok(json!(null))
             }
         }
-        other => {
-            println!("{:?}", other);
+        Err(e) => {
+            println!("{:?}", e);
+            Err(e)
         }
+        _other => Ok(serde_json::Value::Null),
     }
-    Ok(())
 }

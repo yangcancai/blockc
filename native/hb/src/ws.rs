@@ -32,6 +32,7 @@ use actix::StreamHandler;
 use actix::System;
 use awc::ws::Message;
 use futures::StreamExt;
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Sender;
@@ -39,12 +40,12 @@ use std::sync::mpsc::TryRecvError;
 use std::thread;
 use std::thread::JoinHandle;
 type Pid = Sender<Reply>;
-type CallHook = fn(Pid) -> Call;
 pub type WsResult = Result<(), WsError>;
 pub enum Call {
     Ping(Pid),
     Close(Pid),
     WsMsg(WsMsg),
+    WsMsgCall(Pid, WsMsg),
 }
 pub enum WsError {
     NonSender,
@@ -53,6 +54,7 @@ pub enum WsError {
 pub enum Reply {
     Ok,
     Pong,
+    Value(serde_json::Value),
 }
 pub struct Ws {
     sender: Option<Sender<Call>>,
@@ -86,9 +88,10 @@ fn block_on(
                     hook_start,
                     hook_stop,
                     hook_callback,
+                    json!({}),
                 )
             });
-            thread::spawn(move || loop {
+            std::thread::spawn(move || loop {
                 match rx.try_recv() {
                     Err(TryRecvError::Empty) => {
                         continue;
@@ -104,6 +107,13 @@ fn block_on(
                     }
                     Ok(Call::Ping(pid)) => {
                         let _ = pid.send(Reply::Pong);
+                    }
+                    Ok(Call::WsMsgCall(pid, wsg)) => {
+                        if let Ok(Some(reply)) =
+                            futures::executor::block_on(addr.send(ClientCommand(wsg)))
+                        {
+                            let _ = pid.send(Reply::Value(reply));
+                        }
                     }
                     Ok(Call::WsMsg(wsmsg)) => {
                         addr.do_send(ClientCommand(wsmsg));
@@ -141,7 +151,7 @@ impl Ws {
     pub fn new(url: &'static str) -> Self {
         Ws {
             sender: None,
-            url: url,
+            url,
             handle: None,
             hook_start: None,
             hook_stop: None,
@@ -175,7 +185,16 @@ impl Ws {
             }
         }
     }
-    fn call(&mut self, hook: CallHook) -> Result<Reply, ()> {
+    pub fn get_data(&mut self, key: &str) -> serde_json::Value {
+        match self.call(|pid| Call::WsMsgCall(pid, WsMsg::Get(key.to_string()))) {
+            Ok(Reply::Value(v)) => v,
+            _ => json!(null),
+        }
+    }
+    fn call<F>(&mut self, hook: F) -> Result<Reply, ()>
+    where
+        F: FnOnce(Pid) -> Call,
+    {
         let (pid, rx) = channel();
         if let Some(send) = &self.sender {
             if let Ok(()) = send.send(hook(pid)) {
