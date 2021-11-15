@@ -109,12 +109,10 @@ impl StreamHandler<Result<Frame, WsProtocolError>> for ChatClient {
                 Ok(value) => {
                     if let Some(key) = value["id"].as_str() {
                         if let Some(obj) = self.4.get_mut(key) {
-                            *obj = value;
-                        } else {
-                            if let Some(obj) = self.4.as_object_mut() {
-                                let v = &value["value"];
-                                obj.insert(key.into(), v.clone());
-                            }
+                            *obj = value["value"].clone();
+                        } else if let Some(obj) = self.4.as_object_mut() {
+                            let v = &value["value"];
+                            obj.insert(key.into(), v.clone());
                         }
                     }
                 }

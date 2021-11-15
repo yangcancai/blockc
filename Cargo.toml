@@ -1,4 +1,5 @@
 [workspace]
+exclude = ["native/hb/examples/memcheck"]
 members = ["native/*"]
 
 [profile.release]

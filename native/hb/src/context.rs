@@ -21,8 +21,8 @@
 // @end
 // Created : 2021-10-28T02:19:50+00:00
 //-------------------------------------------------------------------
-use hb::ws::Ws;
-#[repr(c)]
-pub struct context{
+use crate::ws::Ws;
+#[repr(C)]
+pub struct Context{
 	ws: *mut Ws,   	
 }

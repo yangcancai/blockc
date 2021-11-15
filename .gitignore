@@ -47,3 +47,5 @@ app.*.map.json
 /target
 .metadata
 .vscode
+native/hb/examples/memcheck/target
+native/hb-ffi/target

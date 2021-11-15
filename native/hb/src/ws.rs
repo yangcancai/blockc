@@ -127,6 +127,7 @@ fn block_on(
         }
     });
     sys.run().unwrap();
+    println!("sys.run stop...");
 }
 
 impl Ws {
@@ -176,14 +177,7 @@ impl Ws {
     }
 
     fn ping(&mut self) -> bool {
-        match self.call(|pid| Call::Ping(pid)) {
-            Ok(Reply::Pong) => {
-                return true;
-            }
-            _ => {
-                return false;
-            }
-        }
+        matches!(self.call(|pid| { Call::Ping(pid) }), Ok(Reply::Pong))
     }
     pub fn get_data(&mut self, key: &str) -> serde_json::Value {
         match self.call(|pid| Call::WsMsgCall(pid, WsMsg::Get(key.to_string()))) {
@@ -195,22 +189,18 @@ impl Ws {
     where
         F: FnOnce(Pid) -> Call,
     {
-        let (pid, rx) = channel();
         if let Some(send) = &self.sender {
+        let (pid, rx) = channel();
             if let Ok(()) = send.send(hook(pid)) {
                 match rx.recv() {
-                    Ok(reply) => {
-                        return Ok(reply);
-                    }
-                    _ => {
-                        return Err(());
-                    }
+                    Ok(reply) => Ok(reply),
+                    _ => Err(()),
                 }
             } else {
-                return Err(());
+                Err(())
             }
         } else {
-            return Err(());
+            Err(())
         }
     }
     pub fn send_msg(&mut self, msg: &str) -> WsResult {
@@ -236,7 +226,9 @@ impl Ws {
         let _ = self.call(|pid| Call::Close(pid));
         let _ = self.send(Message::Close(None));
         if let Some(thread) = self.handle.take() {
-            if let Ok(_) = thread.join() {};
+            if thread.join().is_ok() {
+                println!("thread join finished");
+            };
         }
     }
 }

@@ -3,6 +3,7 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart' as ffi;
+import 'package:ffi/ffi.dart';
 
 // ignore_for_file: unused_import, camel_case_types, non_constant_identifier_names
 final DynamicLibrary _dl = _open();
@@ -24,6 +25,56 @@ class Ws extends Opaque{
   //   return Pointer<Ws>.fromAddress(ptr);
   // }
 }
+class Market extends Struct {
+  external Pointer<ffi.Utf8> ch;
+  @Int64()
+  external int ts; 
+  @Double()
+  external double ask;
+  @Double()
+  external double ask_size;
+  @Double()
+  external double bid;
+  @Double()
+  external double bid_size;
+  @Int64()
+  external int quote_time;
+  external Pointer<ffi.Utf8> symbol;
+}
+/// C function `get_market`.
+Pointer<Market> get_market(
+  Pointer<Ws> ws,
+  Pointer<ffi.Utf8> ch,
+) {
+  return _get_market(ws, ch);
+}
+final _get_market_Dart _get_market= _dl.lookupFunction<_get_market_C, _get_market_Dart>('get_market');
+typedef _get_market_C = Pointer<Market> Function(
+  Pointer<Ws> ws,
+  Pointer<ffi.Utf8> ch,
+);
+typedef _get_market_Dart = Pointer<Market> Function(
+  Pointer<Ws> ws,
+  Pointer<ffi.Utf8> ch,
+);
+/// C function `get_market1`.
+Market get_market1(
+  Pointer<Ws> ws,
+  Pointer<ffi.Utf8> ch,
+) {
+  return _get_market1(ws, ch);
+}
+final _get_market1_Dart _get_market1= _dl.lookupFunction<_get_market1_C, _get_market1_Dart>('get_market1');
+typedef _get_market1_C = Market Function(
+  Pointer<Ws> ws,
+  Pointer<ffi.Utf8> ch,
+);
+typedef _get_market1_Dart = Market Function(
+  Pointer<Ws> ws,
+  Pointer<ffi.Utf8> ch,
+);
+
+
 
 /// C function `error_message_utf8`.
 int error_message_utf8(

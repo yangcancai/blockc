@@ -1,5 +1,4 @@
 #![allow(clippy::missing_safety_doc, clippy::not_unsafe_ptr_arg_deref)]
-
 use actix::*;
 use actix_web::client::WsProtocolError;
 use actix_web_actors::ws::Frame;
@@ -11,13 +10,45 @@ use hb::client::*;
 use hb::ws::Ws;
 use lazy_static::lazy_static;
 use serde_json::json;
-use std::slice;
+use std::ffi::CString;
+use std::os::raw::c_char;
 use std::sync::atomic::Ordering;
 use std::{ffi::CStr, io, os::raw};
 use tokio::runtime::{Builder, Runtime};
-
 static mut PORT_COBJECT: Atomic<Option<i64>> = Atomic::new(None);
-
+#[derive(Debug)]
+#[repr(C)]
+pub struct Market {
+    pub ch: *const c_char,
+    pub ts: i64,
+    pub ask: f64,
+    pub ask_size: f64,
+    pub bid: f64,
+    pub bid_size: f64,
+    pub quote_time: i64,
+    pub symbol: *const c_char,
+}
+impl Market {
+    pub fn new(m: &serde_json::Map<String, serde_json::Value>) -> Self {
+        println!("new market {:?}", m);
+        let ch: *const c_char = CString::new(m["ch"].as_str().unwrap_or_default())
+            .unwrap_or_default()
+            .as_ptr();
+        let symbol = CString::new(m["tick"]["symbol"].as_str().unwrap_or_default())
+            .unwrap_or_default()
+            .as_ptr();
+        Market {
+            ch,
+            ts: m["ts"].as_i64().unwrap_or_default(),
+            ask: m["tick"]["ask"].as_f64().unwrap_or_default(),
+            ask_size: m["tick"]["askSize"].as_f64().unwrap_or_default(),
+            bid: m["tick"]["bid"].as_f64().unwrap_or_default(),
+            bid_size: m["tick"]["bidSize"].as_f64().unwrap_or_default(),
+            quote_time: m["tick"]["quoteTime"].as_i64().unwrap_or_default(),
+            symbol,
+        }
+    }
+}
 lazy_static! {
     static ref RUNTIME: io::Result<Runtime> = Builder::new()
         .threaded_scheduler()
@@ -44,7 +75,7 @@ macro_rules! error {
 
 macro_rules! cstr {
     ($ptr:expr) => {
-        cstr!($ptr, 0);
+        cstr!($ptr, 0)
     };
     ($ptr:expr, $error:expr) => {{
         null_pointer_check!($ptr);
@@ -83,7 +114,7 @@ pub extern "C" fn load_page(port: i64, url: *const raw::c_char) -> i32 {
 pub async fn do_task() -> i32 {
     let mut i = 0;
     while i < 10 {
-        i = i + 1;
+        i += 1;
         unsafe {
             post_dart(i.to_string());
         }
@@ -171,16 +202,34 @@ pub unsafe extern "C" fn is_alive(ws: *mut Ws) -> bool {
 }
 #[no_mangle]
 pub unsafe extern "C" fn stop_ws(ws: *mut Ws) {
-    (*ws).close()
+    Box::from_raw(ws);
 }
 #[no_mangle]
 pub unsafe extern "C" fn send_msg(ws: *mut Ws, msg: *const raw::c_char) -> bool {
     let msg = CStr::from_ptr(msg).to_str().unwrap();
-    if let Ok(()) = (*ws).send_msg(msg) {
-        true
+    matches!((*ws).send_msg(msg), Ok(()))
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_market(ws: *mut Ws, ch: *const raw::c_char) -> *mut Market {
+    let ch = CStr::from_ptr(ch).to_str().unwrap();
+    let value = (*ws).get_data(ch);
+    if let Some(m) = value.as_object() {
+        let mut m = Market::new(m);
+        println!("market = {:?}", m);
+        &mut m
     } else {
-        false
+        println!("market = null ,ch={},{}", ch, value);
+        std::ptr::null_mut()
     }
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_market1(ws: *mut Ws, ch: *const raw::c_char) -> Market {
+    let ch = CStr::from_ptr(ch).to_str().unwrap();
+    let value = (*ws).get_data(ch);
+    let m = value.as_object().unwrap();
+    let m = Market::new(m);
+    println!("market = {:?}", m);
+    m
 }
 #[no_mangle]
 pub unsafe extern "C" fn get_symbols() {}

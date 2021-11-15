@@ -1,7 +1,6 @@
-use dart_bindgen::{config::*, Codegen};
-
+use dart_bindgen::config::*;
 fn main() {
-    let crate_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let _crate_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let mut config = cbindgen::Config {
         language: cbindgen::Language::C,
         ..Default::default()
@@ -15,12 +14,15 @@ fn main() {
     //     .generate()
     //     .expect("Unable to generate bindings")
     //     .write_to_file("binding.h");
+    // cc::Build::new()
+        // .file("csrc/double.c")
+        // .compile("libdouble.a");
     let _config = DynamicLibraryConfig {
         ios: DynamicLibraryCreationMode::Executable.into(),
         android: DynamicLibraryCreationMode::open("libhb_ffi.so").into(),
         ..Default::default()
     };
-    // load the c header file, with config and lib name
+        // load the c header file, with config and lib name
     // let codegen = Codegen::builder()
     // .with_src_header("binding.h")
     // .with_lib_name("libhb")
