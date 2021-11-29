@@ -6,3 +6,4 @@
 build/
 .metadata
 .vscode/
+main.exe.*

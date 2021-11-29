@@ -1,5 +1,6 @@
 ifeq ($(shell uname),Darwin)
     LDFLAGS := -Wl,-dead_strip,-framework,Security
+    #LDFLAGS := -Wl,-dead_strip
 else
     LDFLAGS := -Wl,--gc-sections -lpthread -ldl
 endif

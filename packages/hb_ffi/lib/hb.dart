@@ -19,6 +19,20 @@ int startTimer(){
   final int nativePort = interactiveCppRequests.sendPort.nativePort;
   return  native.start_timer(nativePort);
 }
+  Future<List<dynamic>> getSymbols(String url){
+    var urlPointer = url.toNativeUtf8();
+    final completer = Completer<List<dynamic>>();
+    final sendPort = singleCompletePort(completer);
+    final res = native.get_symbols(
+      sendPort.nativePort,
+      urlPointer,
+    );
+    if (res != 1) {
+      _throwError();
+    }
+    return completer.future;
+
+  }
   Future<String> loadPage(String url) {
     var urlPointer = url.toNativeUtf8();
     final completer = Completer<String>();

@@ -67,11 +67,20 @@ make_dev(){
 make_rel(){
 	cargo make build -p release
 }
+prepare(){
+	rustup override set nightly
+	rustup component add rust-src --toolchain nightly-x86_64-apple-darwin
+	rustup target add x86_64-linux-android
+	rustup target add aarch64-linux-android
+	rustup target add armv7-linux-androideabi
+	rustup target add i686-linux-android
+}
 help(){
 	echo "sh tool.sh make_dev: cargo make build"
 	echo "sh tool.sh make_rel: cargo make build -p release"
 	echo "sh tool.sh run: execute flutter run --no-sound-null-safety"
 	echo "sh tool.sh build <Member> <rel>"
+	echo "sh tool.sh prepare: rustup target add <TARGET>"
 	echo "Member:"
 	echo "native/hb-ffi: hb-ffi"
 	echo "rel:"
@@ -83,5 +92,6 @@ build) build $2 $3;;
 run) run;;
 make_dev) make_dev;;
 make_rel) make_rel;;
+prepare) prepare;;
 *) help;
 esac

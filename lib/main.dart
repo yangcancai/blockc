@@ -36,8 +36,8 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     Hb.setup();
     hb.startTimer();
-    // ws = start_ws("wss://api.huobi.pro/ws".toNativeUtf8());
-    ws = start_ws("ws://127.0.0.1:2794".toNativeUtf8());
+    ws = start_ws("wss://api.huobi.pro/ws".toNativeUtf8());
+    // ws = start_ws("ws://127.0.0.1:2794".toNativeUtf8());
     if (ws == nullptr){
        print("start_ws null");
     }else{

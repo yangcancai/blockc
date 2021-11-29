@@ -41,35 +41,42 @@ class Market extends Struct {
   external int quote_time;
   external Pointer<ffi.Utf8> symbol;
 }
+void free_market(Market m){
+  _free_market(m);
+}
+final _free_market_Dart _free_market = _dl.lookupFunction<_free_market_C, _free_market_Dart>('free_market');
+typedef _free_market_C = Void Function(Market m);
+typedef _free_market_Dart = void Function(Market m);
+
+/// C function `get_market_point`.
+Pointer<Market> get_market_point(
+  Pointer<Ws> ws,
+  Pointer<ffi.Utf8> ch,
+) {
+  return _get_market_point(ws, ch);
+}
+final _get_market_point_Dart _get_market_point= _dl.lookupFunction<_get_market_point_C, _get_market_point_Dart>('get_market_point');
+typedef _get_market_point_C = Pointer<Market> Function(
+  Pointer<Ws> ws,
+  Pointer<ffi.Utf8> ch,
+);
+typedef _get_market_point_Dart = Pointer<Market> Function(
+  Pointer<Ws> ws,
+  Pointer<ffi.Utf8> ch,
+);
 /// C function `get_market`.
-Pointer<Market> get_market(
+Market get_market(
   Pointer<Ws> ws,
   Pointer<ffi.Utf8> ch,
 ) {
   return _get_market(ws, ch);
 }
 final _get_market_Dart _get_market= _dl.lookupFunction<_get_market_C, _get_market_Dart>('get_market');
-typedef _get_market_C = Pointer<Market> Function(
+typedef _get_market_C = Market Function(
   Pointer<Ws> ws,
   Pointer<ffi.Utf8> ch,
 );
-typedef _get_market_Dart = Pointer<Market> Function(
-  Pointer<Ws> ws,
-  Pointer<ffi.Utf8> ch,
-);
-/// C function `get_market1`.
-Market get_market1(
-  Pointer<Ws> ws,
-  Pointer<ffi.Utf8> ch,
-) {
-  return _get_market1(ws, ch);
-}
-final _get_market1_Dart _get_market1= _dl.lookupFunction<_get_market1_C, _get_market1_Dart>('get_market1');
-typedef _get_market1_C = Market Function(
-  Pointer<Ws> ws,
-  Pointer<ffi.Utf8> ch,
-);
-typedef _get_market1_Dart = Market Function(
+typedef _get_market_Dart = Market Function(
   Pointer<Ws> ws,
   Pointer<ffi.Utf8> ch,
 );
@@ -115,7 +122,22 @@ final _last_error_length_Dart _last_error_length = _dl.lookupFunction<_last_erro
 typedef _last_error_length_C = Int32 Function();
 typedef _last_error_length_Dart = int Function();
 
-/// C function `load_page`.
+/// C function `get_symbols`
+int get_symbols(
+  int port,
+  Pointer<ffi.Utf8> url){
+    return _get_symbols(port, url);
+}
+final _get_symbols_Dart _get_symbols = _dl.lookupFunction<_get_symbols_C, _get_symbols_Dart>('get_symbols');
+typedef _get_symbols_C = Int32 Function(
+  Int64 port,
+  Pointer<ffi.Utf8> url,
+);
+typedef _get_symbols_Dart = int Function(
+  int port,
+  Pointer<ffi.Utf8> url,
+);
+/// C function `get_symbols`.
 int load_page(
   int port,
   Pointer<ffi.Utf8> url,

@@ -2,11 +2,12 @@
 use actix::*;
 use actix_web::client::WsProtocolError;
 use actix_web_actors::ws::Frame;
-use allo_isolate::Isolate;
+use allo_isolate::{IntoDart, Isolate};
+use allo_isolate::ffi::DartCObject;
 use atomic::Atomic;
 use awc::ws::Message;
 use ffi_helpers::null_pointer_check;
-use hb::client::*;
+use hb::{HbError, client::*};
 use hb::ws::Ws;
 use lazy_static::lazy_static;
 use serde_json::json;
@@ -33,10 +34,10 @@ impl Market {
         println!("new market {:?}", m);
         let ch: *const c_char = CString::new(m["ch"].as_str().unwrap_or_default())
             .unwrap_or_default()
-            .as_ptr();
+            .into_raw();
         let symbol = CString::new(m["tick"]["symbol"].as_str().unwrap_or_default())
             .unwrap_or_default()
-            .as_ptr();
+            .into_raw();
         Market {
             ch,
             ts: m["ts"].as_i64().unwrap_or_default(),
@@ -46,6 +47,14 @@ impl Market {
             bid_size: m["tick"]["bidSize"].as_f64().unwrap_or_default(),
             quote_time: m["tick"]["quoteTime"].as_i64().unwrap_or_default(),
             symbol,
+        }
+    }
+}
+impl Drop for Market{
+    fn drop(&mut self) {
+        unsafe {
+            let _= CString::from_raw(self.ch as *mut c_char);
+            let _= CString::from_raw(self.symbol as *mut c_char);
         }
     }
 }
@@ -210,20 +219,7 @@ pub unsafe extern "C" fn send_msg(ws: *mut Ws, msg: *const raw::c_char) -> bool 
     matches!((*ws).send_msg(msg), Ok(()))
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_market(ws: *mut Ws, ch: *const raw::c_char) -> *mut Market {
-    let ch = CStr::from_ptr(ch).to_str().unwrap();
-    let value = (*ws).get_data(ch);
-    if let Some(m) = value.as_object() {
-        let mut m = Market::new(m);
-        println!("market = {:?}", m);
-        &mut m
-    } else {
-        println!("market = null ,ch={},{}", ch, value);
-        std::ptr::null_mut()
-    }
-}
-#[no_mangle]
-pub unsafe extern "C" fn get_market1(ws: *mut Ws, ch: *const raw::c_char) -> Market {
+pub unsafe extern "C" fn get_market(ws: *mut Ws, ch: *const raw::c_char) -> Market {
     let ch = CStr::from_ptr(ch).to_str().unwrap();
     let value = (*ws).get_data(ch);
     let m = value.as_object().unwrap();
@@ -232,4 +228,38 @@ pub unsafe extern "C" fn get_market1(ws: *mut Ws, ch: *const raw::c_char) -> Mar
     m
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_symbols() {}
+pub unsafe extern "C" fn free_char(c: *const raw::c_char) {
+    let _ = CString::from_raw(c as *mut raw::c_char);
+}
+#[no_mangle]
+pub unsafe extern "C" fn free_market(m: Market){
+    drop(m);
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_symbols(port: i64, url: *const c_char) -> i32 {
+   let rt = runtime!();
+    let url = cstr!(url);
+    let t = Isolate::new(port).task(async move {
+    let rs = hb::load_page(url).await;
+    let rs1 = parse_resp(rs).await;
+    println!("get_symbols = {:?}", rs1);
+    rs1
+    });
+    rt.spawn(t);
+    1
+}
+async fn parse_resp(rs: Result<String, HbError>) -> Vec<String>{
+if let Ok(resp) = rs{
+            if let Ok(value) = serde_json::from_str::<serde_json::Value>(&resp){
+                if value["status"]  == json!("ok"){
+                    return value["data"].as_array().unwrap().iter().filter(|data|{
+                        data["quote-currency"].as_str().unwrap() == json!("usdt")
+                    }).map(|data|
+                        {
+                            String::from(data["symbol"].as_str().unwrap())
+                        }).collect();
+                }
+            }
+        }
+    return vec!["ss".into()];
+}
